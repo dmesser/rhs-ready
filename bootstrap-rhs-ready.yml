@@ -1,5 +1,7 @@
 ---
 
+- include: check-prerequisites.yml
+
 - hosts: localhost
   name: "Generate SSH keypairs locally"
 
@@ -211,6 +213,7 @@
 
         - name: create RAID configuration
           shell: hpssascripting -i /tmp/ssainput.ini
+          changed_when: false
 
         - name: wipe devices
           shell: wipefs -af {{ item }}
@@ -219,6 +222,8 @@
             - /dev/sdc
             - /dev/nvme0n1
             - /dev/nvme1n1
+          failed_when: false
+          changed_when: false
 
       when: apply_disk_config == 'yes'
 
