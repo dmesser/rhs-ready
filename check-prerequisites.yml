@@ -197,9 +197,16 @@
 
     - assert:
         that:
+          - ansible_eno1 is defined
           - ansible_ens1f0 is defined
           - ansible_ens2f0 is defined
-        msg: "System {{ ansible_host }} does not have the expected NICs available, is using a different driver or has the NICs in the wrong PCIe slots. Please ensure that minimally ens1f0 and ens2f0 are available."
+        msg: "System {{ ansible_host }} does not have the expected NICs available, is using a different driver or has the NICs in the wrong PCIe slots. Please ensure that minimally eno1, ens1f0 and ens2f0 are available."
+
+    - assert:
+        that:
+          - ansible_eno1.active == true
+          - ansible_eno1.device == ansible_default_ipv4.alias
+        msg: "System {{ ansible_host }} does not use eno1 as it's management network."
 
     - assert:
         that:
