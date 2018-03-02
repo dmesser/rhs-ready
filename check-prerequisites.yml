@@ -163,6 +163,17 @@
         - 1I:1:51
         - 1I:1:52
 
+    - name: enumerate physical NVMe devices
+      shell: lsblk --output NAME /dev/nvme*
+      changed_when: false
+      register: lsblk_nvme_cmd
+
+    - assert:
+        that:
+          - "{{ lsblk_nvme_cmd.stdout.find('nvme0n1') }}"
+          - "{{ lsblk_nvme_cmd.stdout.find('nvme1n1') }}"
+        msg: "System {{ ansible_host }} does not have the required NVMe devices present. Please make sure they show up as /dev/nvme0n1 and /dev/nvme1n1 in the system."
+
     - assert:
         that:
           - "{{ item | success }}"

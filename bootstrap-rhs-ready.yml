@@ -31,8 +31,8 @@
       default: 'lacp'
       private: no
 
-    - name: apply_raid_config
-      prompt: "\n\nThis playbook will configure two RAID6 sets, each of 12 hard disks. This will DESTROY any data on all those disks. The OS disks are not touched. Select 'yes' if you agree or 'no' if you prepared the RAID sets yourself as /dev/sdb and /dev/sdc."
+    - name: apply_disk_config
+      prompt: "\n\nThis playbook will configure two RAID6 sets, each of 12 hard disks. It will also initialize the NVMe devices. This will DESTROY any data on all those devices. The OS disks are not touched. Select 'yes' if you agree or 'no' if you prepared the RAID sets and NVMe devices yourself as /dev/sdb, /dev/sdc and /dev/nvme0n1, /dev/nvme1n1 respectively."
       default: 'no'
       private: no
 
@@ -45,7 +45,7 @@
 
     - assert:
         that:
-          - apply_raid_config == 'yes' or apply_raid_config == 'no'
+          - apply_disk_config == 'yes' or apply_disk_config == 'no'
         msg: "Invalid response. Please specify either 'yes' or 'no'."
 
     - name: add generated ssh key to hosts
@@ -138,6 +138,10 @@
       changed_when: false
       with_items:
         - bond0
+        - bond0-ens1f0
+        - bond0-ens2f0
+        - ens1f0
+        - ens2f0
 
     - name: delete any existing bonding device
       shell: nmcli device delete {{ item }}
@@ -146,10 +150,12 @@
       changed_when: false
       with_items:
         - bond0
+        - bond0-ens1f0
+        - bond0-ens2f0
 
     - name: create network team for gluster data traffic
       nmcli:
-        type: team
+        type: bond
         conn_name: bond0
         mode: "{{ (bonding_mode == 'lacp') | ternary('802.3ad', 'balance-tlb') }}"
         state: present
@@ -165,6 +171,14 @@
       with_items:
         - ens1f0
         - ens2f0
+      changed_when: false
+
+    - name: verify bond connection state
+      shell: cat /sys/class/net/bond0/bonding/mii_status
+      register: bonding_state_cmd
+      until: bonding_state_cmd.stdout == 'up'
+      retries: 5
+      delay: 5
       changed_when: false
 
     - block:
@@ -198,7 +212,17 @@
         - name: create RAID configuration
           shell: hpssascripting -i /tmp/ssainput.ini
 
-      when: apply_raid_config == 'yes'
+        - name: wipe devices
+          shell: wipefs -af {{ item }}
+          with_items:
+            - /dev/sdb
+            - /dev/sdc
+            - /dev/nvme0n1
+            - /dev/nvme1n1
+
+      when: apply_disk_config == 'yes'
+
+    #- name: enumerate
 
   handlers:
 
