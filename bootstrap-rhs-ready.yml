@@ -133,6 +133,20 @@
         create: yes
         state: present
 
+    - name: retrieve NetworkManager connection names for onboard nics
+      shell: nmcli -f NAME,DEVICE -t connection show | grep {{ item }}
+      changed_when: false
+      register: nmcli_conn_show_loms_cmd
+      with_items:
+        - eno1
+        - eno2
+
+    - name: rename NetworkManager connection name for onboard nics
+      shell: nmcli connection modify {{ item.0 | split(':') | first }} connection.id {{ item .1 }}
+      with_together:
+        - nmcli_conn_show_loms_cmd.results
+        - ['eno1', 'eno2']
+
     - name: delete any existing bonding connection
       shell: nmcli connection delete {{ item }}
       ignore_errors: true
