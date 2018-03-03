@@ -120,7 +120,7 @@
       lineinfile:
         line: "allow-interfaces={{ ansible_default_ipv4.alias }}"
         path: /etc/avahi/avahi-daemon.conf
-        insertafter: "[server]"
+        insertafter: "\\[server\\]"
         state: present
 
     - name: configure system panic settings
@@ -134,18 +134,16 @@
         state: present
 
     - name: retrieve NetworkManager connection names for onboard nics
-      shell: nmcli -f NAME,DEVICE -t connection show | grep {{ item }}
+      shell: nmcli -f UUID,DEVICE -t connection show | grep {{ item }}
       changed_when: false
       register: nmcli_conn_show_loms_cmd
       with_items:
         - eno1
-        - eno2
 
     - name: rename NetworkManager connection name for onboard nics
-      shell: nmcli connection modify {{ item.0 | split(':') | first }} connection.id {{ item .1 }}
-      with_together:
-        - nmcli_conn_show_loms_cmd.results
-        - ['eno1', 'eno2']
+      shell: nmcli connection modify {{ item.stdout.split(':')[0] }} connection.id {{ item.stdout.split(':')[1] }}
+      with_items:
+        - "{{ nmcli_conn_show_loms_cmd.results }}"
 
     - name: delete any existing bonding connection
       shell: nmcli connection delete {{ item }}
@@ -254,8 +252,13 @@
     - name: reload sshd
       service: name=sshd state=reloaded
 
-    - name: enable zeroconf
+    - name: enable avahi socket
       systemd: unit=avahi-daemon.socket state=started enabled=yes
+      listen: enable zeroconf
+
+    - name: enable avahi service
+      systemd: unit=avahi-daemon.service state=started enabled=yes
+      listen: enable zeroconf
 
     - name: allow zeroconf
       firewalld: service=mdns state=enabled permanent=true immediate=true
